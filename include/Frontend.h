@@ -9,6 +9,7 @@ class Frontend
 public:
     Frontend();
     Frame::Ptr GetCurrentFrame();
+    //int num_inliers_;
 
     // 处理新的一帧 (这是唯一的入口)
     // 返回：当前帧的位姿 (用于画图)

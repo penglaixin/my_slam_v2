@@ -1,5 +1,25 @@
 #include "LoopClosing.h"
 
+void LoopClosing::SaveTrajectory(const std::string &filename)
+{
+    std::ofstream f(filename);
+    f << std::fixed << std::setprecision(9);
+
+    for (auto &frame : all_keyframes_)
+    {
+        // T_w_c
+        Eigen::Matrix3d R = frame->T_w_c.block<3, 3>(0, 0);
+        Eigen::Vector3d t = frame->T_w_c.block<3, 1>(0, 3);
+        Eigen::Quaterniond q(R);
+
+        f << frame->timestamp << " "
+          << t.x() << " " << t.y() << " " << t.z() << " "
+          << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << std::endl;
+    }
+    f.close();
+    std::cout << "Global Trajectory saved to " << filename << std::endl;
+}
+
 LoopClosing::LoopClosing(std::string vocab_path)
 {
     std::cout << "Loading Vocabulary from: " << vocab_path << " ..." << std::endl;
@@ -109,7 +129,7 @@ void LoopClosing::CorrectLoop(int loop_index, Frame::Ptr curr_frame)
     // 解 PnP 算出相对运动
     cv::solvePnPRansac(object_points, image_points, K, cv::Mat(), rvec, tvec, false, 100, 3.0, 0.99, inliers);
 
-    if (inliers.size() < 15)
+    if (inliers.size() < 40)
     {
         std::cout << "Loop Rejected: PnP failed." << std::endl;
         return;
@@ -179,7 +199,7 @@ void LoopClosing::CorrectLoop(int loop_index, Frame::Ptr curr_frame)
         Eigen::Vector3d t_rel = T_rel.block<3, 1>(0, 3);
 
         edge->setMeasurement(g2o::SE3Quat(R_rel, t_rel));
-        edge->setInformation(Eigen::MatrixXd::Identity(6, 6));
+        edge->setInformation(Eigen::MatrixXd::Identity(6, 6) * 0.1);
         optimizer.addEdge(edge);
     }
 
@@ -202,8 +222,8 @@ void LoopClosing::CorrectLoop(int loop_index, Frame::Ptr curr_frame)
     // 让我们用最直观的方法：计算 T_old_curr = T_old_w * T_w_curr (用PnP结果)
     // PnP 结果 T_pnp 是 Camera -> World (Old Frame System)
     Eigen::Matrix4d T_curr_in_old_world = Eigen::Matrix4d::Identity();
-    T_curr_in_old_world.block<3, 3>(0, 0) = R_eig;       // 这里 R_eig 是 PnP 算出的 R_cw
-    T_curr_in_old_world.block<3, 1>(0, 3) = t_eig;       // t_cw
+    T_curr_in_old_world.block<3, 3>(0, 0) = R_eig;              // 这里 R_eig 是 PnP 算出的 R_cw
+    T_curr_in_old_world.block<3, 1>(0, 3) = t_eig;              // t_cw
     T_curr_in_old_world = T_curr_in_old_world.inverse().eval(); // 变成 T_w_c (在旧世界坐标系下)
 
     Eigen::Matrix4d T_old_w = old_frame->T_w_c.inverse(); // World -> Old Camera (其实就是 Old Camera -> World 的逆)
@@ -213,7 +233,7 @@ void LoopClosing::CorrectLoop(int loop_index, Frame::Ptr curr_frame)
     loop_edge->setMeasurement(T_c_oldmap_meas);
 
     // 给回环边极大的权重 (强行拉过去)
-    loop_edge->setInformation(Eigen::MatrixXd::Identity(6, 6) * 100.0);
+    loop_edge->setInformation(Eigen::MatrixXd::Identity(6, 6) * 1000.0);
     optimizer.addEdge(loop_edge);
 
     // 4. 执行优化

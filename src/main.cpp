@@ -79,6 +79,9 @@ int main(int argc, char **argv)
                << t.x() << " " << t.y() << " " << t.z() << " "
                << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
     }
+
+    // [新增] 保存最终优化后的全局轨迹
+    loop_closer->SaveTrajectory("trajectory_final.txt");
     
     f_traj.close(); // 循环结束后关闭文件
     return 0;

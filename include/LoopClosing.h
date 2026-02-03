@@ -15,6 +15,8 @@ public:
     // 唯一的入口：接收关键帧
     void AddKeyFrame(Frame::Ptr frame);
 
+    void SaveTrajectory(const std::string& filename);
+
 private:
     // 执行回环修正的新函数
     void CorrectLoop(int loop_frame_index, Frame::Ptr curr_frame);
